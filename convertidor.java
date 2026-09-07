@@ -3,21 +3,18 @@ import java.util.Scanner;
 public class convertidor {
 
     public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
+        try (Scanner sc = new Scanner(System.in)) {
+            System.out.print("Ingrese un numero binario: ");
+            String binario = sc.nextLine().trim().replace(" ", "");
 
-        System.out.print("Ingrese un numero binario: ");
-        String binario = sc.nextLine().trim().replace("﻿", "");
+            if (!esBinarioValido(binario)) {
+                System.out.println("Error: solo se permiten digitos 0 y 1.");
+                return;
+            }
 
-        if (!esBinarioValido(binario)) {
-            System.out.println("Error: solo se permiten digitos 0 y 1.");
-            sc.close();
-            return;
+            int decimal = binarioADecimal(binario);
+            System.out.println("El numero decimal es: " + decimal);
         }
-
-        int decimal = binarioADecimal(binario);
-        System.out.println("El numero decimal es: " + decimal);
-
-        sc.close();
     }
 
     // Verifica que la cadena solo contenga 0s y 1s
