@@ -1,226 +1,282 @@
-# Convertidor Binario a Decimal
+# Convertidor de Bases Numericas
 
-Este programa en Java (`convertidor.java`) le pide al usuario un número binario por consola, valida que sea correcto y muestra su equivalente en decimal.
+Este programa en Java (`convertidor.java`) muestra un **menu** con las 12 conversiones posibles entre los sistemas numericos Decimal, Binario, Octal y Hexadecimal. El usuario elige una opcion, ingresa un numero en la base de origen, el programa lo valida y muestra su equivalente en la base de destino.
 
-A continuación se explica **línea por línea** el funcionamiento del código.
+## Conversiones disponibles
 
-## Código completo
+| Opcion | Conversion |
+|---|---|
+| 1 | Decimal a Binario |
+| 2 | Decimal a Octal |
+| 3 | Decimal a Hexadecimal |
+| 4 | Binario a Decimal |
+| 5 | Binario a Octal |
+| 6 | Binario a Hexadecimal |
+| 7 | Octal a Decimal |
+| 8 | Octal a Binario |
+| 9 | Octal a Hexadecimal |
+| 10 | Hexadecimal a Decimal |
+| 11 | Hexadecimal a Binario |
+| 12 | Hexadecimal a Octal |
+
+Solo se aceptan **numeros enteros no negativos** (sin signo ni parte decimal).
+
+## Como funciona internamente
+
+En lugar de escribir 12 funciones distintas (una por cada par de bases), el programa convierte **siempre pasando por el sistema decimal** como paso intermedio:
+
+```
+numero en base de origen  --->  decimal (int)  --->  numero en base de destino (String)
+```
+
+Por ejemplo, para "Octal a Hexadecimal" primero se convierte el octal a decimal, y luego ese decimal se convierte a hexadecimal. Esto evita repetir la logica de conversion 12 veces: solo existen dos funciones genericas, `aDecimal` (de cualquier base a decimal) y `decimalABase` (de decimal a cualquier base), que reciben la base como parametro.
+
+## Codigo completo
 
 ```java
 import java.util.Scanner;
 
 public class convertidor {
 
+    // Bases de origen y destino para cada opcion del menu, en el mismo orden en que se muestran
+    private static final int[] BASE_ORIGEN  = {10, 10, 10, 2, 2, 2, 8, 8, 8, 16, 16, 16};
+    private static final int[] BASE_DESTINO = { 2,  8, 16, 10, 8, 16, 10, 2, 16, 10, 2, 8};
+
     public static void main(String[] args) {
         try (Scanner sc = new Scanner(System.in)) {
-            System.out.print("Ingrese un numero binario: ");
-            String binario = sc.nextLine().trim().replace(" ", "");
+            mostrarMenu();
+            System.out.print("Elija una opcion (1-12): ");
+            String opcionTexto = sc.nextLine().trim();
 
-            if (!esBinarioValido(binario)) {
-                System.out.println("Error: solo se permiten digitos 0 y 1.");
+            int opcion;
+            try {
+                opcion = Integer.parseInt(opcionTexto);
+            } catch (NumberFormatException e) {
+                System.out.println("Error: debe ingresar un numero de opcion valido.");
                 return;
             }
 
-            int decimal = binarioADecimal(binario);
-            System.out.println("El numero decimal es: " + decimal);
+            if (opcion < 1 || opcion > 12) {
+                System.out.println("Error: la opcion debe estar entre 1 y 12.");
+                return;
+            }
+
+            int baseOrigen = BASE_ORIGEN[opcion - 1];
+            int baseDestino = BASE_DESTINO[opcion - 1];
+
+            System.out.print("Ingrese un numero " + nombreBase(baseOrigen) + ": ");
+            String valor = sc.nextLine().trim().replace(" ", "").toUpperCase();
+
+            if (!esValidoEnBase(valor, baseOrigen)) {
+                System.out.println("Error: '" + valor + "' no es un numero " + nombreBase(baseOrigen)
+                        + " valido (numero entero no negativo).");
+                return;
+            }
+
+            int decimal = aDecimal(valor, baseOrigen);
+            String resultado = decimalABase(decimal, baseDestino);
+
+            System.out.println("El numero en " + nombreBase(baseDestino) + " es: " + resultado);
         }
     }
 
-    // Verifica que la cadena solo contenga 0s y 1s
-    public static boolean esBinarioValido(String binario) {
-        if (binario.isEmpty()) {
+    // Muestra las 12 conversiones disponibles
+    public static void mostrarMenu() {
+        System.out.println("===== Convertidor de bases numericas =====");
+        System.out.println("De Decimal a:");
+        System.out.println("  1. Decimal a Binario");
+        System.out.println("  2. Decimal a Octal");
+        System.out.println("  3. Decimal a Hexadecimal");
+        System.out.println("De Binario a:");
+        System.out.println("  4. Binario a Decimal");
+        System.out.println("  5. Binario a Octal");
+        System.out.println("  6. Binario a Hexadecimal");
+        System.out.println("De Octal a:");
+        System.out.println("  7. Octal a Decimal");
+        System.out.println("  8. Octal a Binario");
+        System.out.println("  9. Octal a Hexadecimal");
+        System.out.println("De Hexadecimal a:");
+        System.out.println("  10. Hexadecimal a Decimal");
+        System.out.println("  11. Hexadecimal a Binario");
+        System.out.println("  12. Hexadecimal a Octal");
+    }
+
+    // Nombre legible de una base numerica
+    public static String nombreBase(int base) {
+        switch (base) {
+            case 2:  return "Binario";
+            case 8:  return "Octal";
+            case 10: return "Decimal";
+            case 16: return "Hexadecimal";
+            default: return "Base " + base;
+        }
+    }
+
+    // Valor numerico (0-15) de un digito dentro de una base, o -1 si no es valido en esa base
+    public static int valorDigito(char c, int base) {
+        int valor;
+        if (c >= '0' && c <= '9') {
+            valor = c - '0';
+        } else if (c >= 'A' && c <= 'F') {
+            valor = 10 + (c - 'A');
+        } else {
+            return -1;
+        }
+        return (valor < base) ? valor : -1;
+    }
+
+    // Caracter correspondiente a un valor numerico (0-15) dentro de una base
+    public static char caracterDigito(int valor) {
+        if (valor < 10) {
+            return (char) ('0' + valor);
+        }
+        return (char) ('A' + (valor - 10));
+    }
+
+    // Verifica que la cadena solo contenga digitos validos para la base indicada
+    public static boolean esValidoEnBase(String valor, int base) {
+        if (valor.isEmpty()) {
             return false;
         }
-        for (char c : binario.toCharArray()) {
-            if (c != '0' && c != '1') {
+        for (char c : valor.toCharArray()) {
+            if (valorDigito(c, base) == -1) {
                 return false;
             }
         }
         return true;
     }
 
-    // Convierte un numero binario (String) a su equivalente decimal
-    public static int binarioADecimal(String binario) {
+    // Convierte una cadena valida en la base indicada a su equivalente decimal (int)
+    public static int aDecimal(String valor, int base) {
         int decimal = 0;
         int potencia = 0;
 
-        for (int i = binario.length() - 1; i >= 0; i--) {
-            int digito = binario.charAt(i) - '0';
-            decimal += digito * (int) Math.pow(2, potencia);
+        for (int i = valor.length() - 1; i >= 0; i--) {
+            int digito = valorDigito(valor.charAt(i), base);
+            decimal += digito * (int) Math.pow(base, potencia);
             potencia++;
         }
 
         return decimal;
     }
+
+    // Convierte un numero decimal a su representacion (String) en la base indicada
+    public static String decimalABase(int decimal, int base) {
+        if (decimal == 0) {
+            return "0";
+        }
+
+        StringBuilder resultado = new StringBuilder();
+        while (decimal > 0) {
+            int resto = decimal % base;
+            resultado.insert(0, caracterDigito(resto));
+            decimal /= base;
+        }
+
+        return resultado.toString();
+    }
 }
 ```
 
-## Explicación detallada, línea por línea
+## Explicacion detallada
 
-### Línea 1 — `import java.util.Scanner;`
-Importa la clase `Scanner`, que forma parte del paquete `java.util` de la biblioteca estándar de Java. `Scanner` es la herramienta que se usa para leer datos que el usuario escribe por teclado (entrada estándar, `System.in`). Sin este `import`, no se podría usar `Scanner` más adelante en el código.
+### Las tablas `BASE_ORIGEN` y `BASE_DESTINO`
 
-### Línea 3 — `public class convertidor {`
-Declara la clase pública `convertidor`. En Java, todo el código debe vivir dentro de una clase, y el nombre del archivo (`convertidor.java`) debe coincidir exactamente con el nombre de la clase pública que contiene (respetando mayúsculas/minúsculas). La llave `{` abre el cuerpo de la clase, que se cierra en la línea 46.
-
-### Línea 5 — `public static void main(String[] args) {`
-Este es el **método principal**, el punto de entrada de cualquier programa Java. La JVM (máquina virtual de Java) busca exactamente este método para empezar a ejecutar el programa.
-- `public`: puede ser llamado desde fuera de la clase (la JVM necesita acceder a él).
-- `static`: pertenece a la clase en sí, no a una instancia/objeto; por eso se puede ejecutar sin crear un `convertidor` primero.
-- `void`: no devuelve ningún valor.
-- `main`: nombre reservado que la JVM reconoce como punto de arranque.
-- `(String[] args)`: parámetro que recibe los argumentos pasados por línea de comandos al ejecutar el programa (en este caso no se usan).
-
-### Línea 6 — `try (Scanner sc = new Scanner(System.in)) {`
-Esto es un **try-with-resources**: crea el objeto `Scanner` llamado `sc`, conectado a `System.in` (la entrada estándar, normalmente el teclado), pero declarándolo dentro del paréntesis del `try`. Cualquier objeto declarado ahí debe implementar `AutoCloseable` (como es el caso de `Scanner`), y Java garantiza que se llamará automáticamente a `sc.close()` al salir del bloque `try`, sin importar si se sale de forma normal (por ejemplo con `return`) o por una excepción. Esto evita tener que escribir `sc.close()` manualmente en cada punto de salida del método, y elimina la advertencia de "resource leak" que dan los editores cuando un recurso no se cierra en todos los caminos posibles del código.
-
-### Línea 7 — `System.out.print("Ingrese un numero binario: ");`
-Imprime en consola el mensaje `"Ingrese un numero binario: "` **sin salto de línea** (se usa `print`, no `println`), de modo que el cursor del usuario quede justo después del mensaje, en la misma línea, listo para escribir la respuesta.
-
-### Línea 8 — `String binario = sc.nextLine().trim().replace(" ", "");`
-Esta línea lee la entrada del usuario y la limpia en tres pasos encadenados:
-1. `sc.nextLine()`: lee toda la línea de texto que el usuario escribió y presionó Enter, devolviéndola como `String`.
-2. `.trim()`: elimina los espacios en blanco sobrantes al principio y al final del texto (por ejemplo, si el usuario escribió `" 1010 "`, queda `"1010"`).
-3. `.replace(" ", "")`: elimina también cualquier espacio en blanco que haya quedado **en medio** del texto (por ejemplo, si el usuario escribió `"10 10"`, queda `"1010"`), ya que `.trim()` solo limpia los extremos.
-
-El resultado final se guarda en la variable `binario`.
-
-### Línea 10 — `if (!esBinarioValido(binario)) {`
-Llama al método `esBinarioValido` (definido más abajo, línea 21) pasándole el texto ingresado. El operador `!` niega el resultado: si el método devuelve `false` (es decir, el binario **no** es válido), la condición se cumple y se entra al bloque `if`.
-
-### Línea 11 — `System.out.println("Error: solo se permiten digitos 0 y 1.");`
-Si la entrada no es un binario válido, se imprime este mensaje de error informando al usuario que solo se aceptan los dígitos `0` y `1`.
-
-### Línea 12 — `return;`
-Termina la ejecución del método `main` de inmediato (sin devolver ningún valor, ya que es `void`). Esto evita que el programa siga intentando convertir un binario inválido. Al ser un `try-with-resources`, salir con `return` desde aquí también cierra automáticamente el `Scanner` antes de que el método termine.
-
-### Línea 13 — `}`
-Cierra el bloque `if` que maneja el caso de entrada inválida.
-
-### Línea 15 — `int decimal = binarioADecimal(binario);`
-Si el código llegó hasta aquí, significa que el binario **sí es válido**. Se llama al método `binarioADecimal` (definido en la línea 34), pasándole la cadena `binario`, y el resultado (un número entero) se guarda en la variable `decimal`.
-
-### Línea 16 — `System.out.println("El numero decimal es: " + decimal);`
-Imprime en consola el resultado de la conversión, concatenando el texto `"El numero decimal es: "` con el valor numérico de `decimal` (Java convierte automáticamente el `int` a `String` al concatenarlo con `+`).
-
-### Línea 17 — `}`
-Cierra el bloque `try-with-resources`. Al llegar aquí, Java cierra automáticamente el `Scanner` `sc` (llamando internamente a `sc.close()`), tanto si el bloque terminó de forma normal como si se salió antes por el `return` de la línea 12.
-
-### Línea 18 — `}`
-Cierra el método `main`.
-
----
-
-### Línea 20 — `// Verifica que la cadena solo contenga 0s y 1s`
-Comentario de una línea que explica el propósito del método que viene a continuación.
-
-### Línea 21 — `public static boolean esBinarioValido(String binario) {`
-Declara el método `esBinarioValido`, que recibe una cadena (`String binario`) y devuelve un valor booleano (`boolean`): `true` si la cadena es un número binario válido, `false` si no lo es.
-- `public`: accesible desde cualquier parte.
-- `static`: puede llamarse directamente desde `main` sin crear un objeto `convertidor`.
-
-### Línea 22 — `if (binario.isEmpty()) {`
-Comprueba si la cadena está vacía (longitud cero), por ejemplo si el usuario no escribió nada y solo presionó Enter.
-
-### Línea 23 — `return false;`
-Si la cadena está vacía, no es un binario válido, así que el método devuelve `false` inmediatamente.
-
-### Línea 24 — `}`
-Cierra el bloque `if` de la línea 22.
-
-### Línea 25 — `for (char c : binario.toCharArray()) {`
-Inicia un bucle "for-each" que recorre **cada carácter** de la cadena `binario`.
-- `binario.toCharArray()`: convierte el `String` en un arreglo (`array`) de caracteres (`char[]`).
-- `char c`: en cada vuelta del bucle, `c` toma el valor de un carácter distinto del arreglo, en orden, de izquierda a derecha.
-
-### Línea 26 — `if (c != '0' && c != '1') {`
-Por cada carácter `c`, comprueba si **no** es igual a `'0'` **y** tampoco es igual a `'1'`. El operador `&&` es "Y lógico": la condición completa solo es verdadera si ambas comparaciones son verdaderas, es decir, si el carácter es distinto tanto de `'0'` como de `'1'` (o sea, cualquier otro carácter no permitido).
-
-### Línea 27 — `return false;`
-Si se encuentra un carácter que no es `0` ni `1`, el método termina de inmediato devolviendo `false`, indicando que el binario no es válido.
-
-### Línea 28 — `}`
-Cierra el bloque `if` de la línea 26.
-
-### Línea 29 — `}`
-Cierra el bucle `for` de la línea 25. Si el bucle termina sin haber encontrado ningún carácter inválido, significa que todos los caracteres son `0` o `1`.
-
-### Línea 30 — `return true;`
-Si se llegó hasta aquí (la cadena no estaba vacía y todos sus caracteres son `0` o `1`), el método devuelve `true`, confirmando que el binario es válido.
-
-### Línea 31 — `}`
-Cierra el método `esBinarioValido`.
-
----
-
-### Línea 33 — `// Convierte un numero binario (String) a su equivalente decimal`
-Comentario que explica el propósito del siguiente método.
-
-### Línea 34 — `public static int binarioADecimal(String binario) {`
-Declara el método `binarioADecimal`, que recibe una cadena binaria válida y devuelve un número entero (`int`): su equivalente en el sistema decimal.
-
-### Línea 35 — `int decimal = 0;`
-Declara e inicializa la variable `decimal` en `0`. Esta variable acumulará el resultado final de la conversión a medida que se procesa cada dígito binario.
-
-### Línea 36 — `int potencia = 0;`
-Declara e inicializa la variable `potencia` en `0`. Representa el exponente de la potencia de 2 correspondiente a cada dígito binario, empezando desde el dígito menos significativo (el de más a la derecha, que corresponde a `2⁰`).
-
-### Línea 38 — `for (int i = binario.length() - 1; i >= 0; i--) {`
-Inicia un bucle `for` que recorre la cadena **de derecha a izquierda**:
-- `int i = binario.length() - 1`: `i` empieza en el índice del último carácter de la cadena (recordando que los índices en Java empiezan en 0, por eso se resta 1 a la longitud).
-- `i >= 0`: el bucle continúa mientras `i` sea mayor o igual a cero (es decir, hasta llegar al primer carácter, índice 0).
-- `i--`: en cada vuelta, `i` disminuye en 1, moviéndose hacia la izquierda.
-
-Se recorre de derecha a izquierda porque el dígito de más a la derecha en un número binario representa las unidades (`2⁰`), y las potencias de 2 van aumentando a medida que se avanza hacia la izquierda.
-
-### Línea 39 — `int digito = binario.charAt(i) - '0';`
-Obtiene el carácter en la posición `i` de la cadena (`binario.charAt(i)`), que es `'0'` o `'1'`. Al restarle el carácter `'0'`, se aprovecha que en la tabla de caracteres (ASCII/Unicode) los dígitos son consecutivos, por lo que esta resta convierte el carácter a su valor numérico real: `'0' - '0' = 0` y `'1' - '0' = 1`. El resultado se guarda como un `int` en la variable `digito`.
-
-### Línea 40 — `decimal += digito * (int) Math.pow(2, potencia);`
-Actualiza el valor acumulado de `decimal`:
-- `Math.pow(2, potencia)`: calcula 2 elevado a la potencia actual (por ejemplo, si `potencia` es 3, calcula `2³ = 8`). Esta función devuelve un `double` (número decimal).
-- `(int)`: convierte (hace un *cast*) ese resultado `double` a un número entero `int`, descartando la parte decimal (que en este caso siempre es `.0` porque 2 elevado a un entero da un resultado exacto).
-- `digito * ...`: multiplica ese valor por el dígito actual (`0` o `1`). Si el dígito es `0`, la potencia no aporta nada a la suma; si es `1`, se suma el valor completo de esa potencia de 2.
-- `decimal += ...`: es una forma abreviada de `decimal = decimal + ...`, es decir, suma el resultado al total acumulado.
-
-### Línea 41 — `potencia++;`
-Incrementa la variable `potencia` en 1 (equivalente a `potencia = potencia + 1`), preparando el exponente correcto para el siguiente dígito (que, al recorrer de derecha a izquierda, representa la siguiente potencia de 2 más alta).
-
-### Línea 42 — `}`
-Cierra el bucle `for` de la línea 38.
-
-### Línea 44 — `return decimal;`
-Una vez procesados todos los dígitos del número binario, el método devuelve el valor final acumulado en `decimal`, que es el equivalente decimal del binario original.
-
-### Línea 45 — `}`
-Cierra el método `binarioADecimal`.
-
-### Línea 46 — `}`
-Cierra la clase `convertidor`.
-
-## Ejemplo de ejecución
-
-```
-Ingrese un numero binario: 1010
-El numero decimal es: 10
+```java
+private static final int[] BASE_ORIGEN  = {10, 10, 10, 2, 2, 2, 8, 8, 8, 16, 16, 16};
+private static final int[] BASE_DESTINO = { 2,  8, 16, 10, 8, 16, 10, 2, 16, 10, 2, 8};
 ```
 
-Explicación del cálculo interno para `1010`:
-| Posición (derecha a izquierda) | Dígito | Potencia de 2 | Aporte |
-|---|---|---|---|
-| 0 | 0 | 2⁰ = 1 | 0 |
-| 1 | 1 | 2¹ = 2 | 2 |
-| 2 | 0 | 2² = 4 | 0 |
-| 3 | 1 | 2³ = 8 | 8 |
+Son dos arreglos paralelos de 12 elementos, uno por cada opcion del menu (indice `0` = opcion 1, indice `1` = opcion 2, etc.). Por ejemplo, la opcion 5 ("Binario a Octal") esta en el indice `4`: `BASE_ORIGEN[4]` vale `2` (binario) y `BASE_DESTINO[4]` vale `8` (octal). Guardar esta correspondencia en dos arreglos evita escribir un `switch` gigante con 12 casos repetidos.
 
-Suma total: `0 + 2 + 0 + 8 = 10`, que es el resultado mostrado.
+### `main`: leer la opcion del menu
+
+1. `mostrarMenu()` imprime las 12 opciones agrupadas por sistema de origen, tal como las pidio el usuario.
+2. `sc.nextLine()` lee la opcion elegida como texto.
+3. `Integer.parseInt(opcionTexto)` intenta convertir ese texto a un numero entero. Si el usuario escribe algo que no es un numero (por ejemplo `"hola"`), se lanza una excepcion `NumberFormatException`, que se captura en el bloque `catch` para mostrar un mensaje de error controlado en vez de que el programa se caiga con un *stack trace*.
+4. Si `opcion` esta fuera del rango 1-12, se informa el error y se termina con `return`.
+
+### `main`: leer y validar el numero
+
+1. `baseOrigen` y `baseDestino` se obtienen de las tablas usando `opcion - 1` (porque los arreglos empiezan en el indice 0, pero el menu empieza en la opcion 1).
+2. Se pide el numero indicando explicitamente la base esperada (`nombreBase(baseOrigen)`), para que el usuario sepa que se espera, por ejemplo, un numero *Hexadecimal*.
+3. `.trim().replace(" ", "").toUpperCase()`: limpia espacios al inicio/fin y en medio (igual que en la version anterior del programa), y ademas pasa el texto a mayusculas, para aceptar tanto `"ff"` como `"FF"` como numero hexadecimal valido.
+4. `esValidoEnBase(valor, baseOrigen)` verifica que todos los caracteres sean digitos permitidos en esa base. Si no lo son, se muestra un error y el programa termina sin intentar convertir.
+5. `aDecimal(valor, baseOrigen)` convierte el texto validado a un entero decimal.
+6. `decimalABase(decimal, baseDestino)` convierte ese entero decimal a su representacion en la base pedida.
+7. Se imprime el resultado final.
+
+### `nombreBase`: traducir el numero de base a un nombre legible
+
+Un simple `switch` que traduce `2 -> "Binario"`, `8 -> "Octal"`, `10 -> "Decimal"`, `16 -> "Hexadecimal"`. Se usa tanto para los mensajes de entrada como para el mensaje de resultado.
+
+### `valorDigito`: de caracter a valor numerico
+
+Esta funcion generaliza lo que en la version anterior era `digito = binario.charAt(i) - '0'` (que solo servia para `0` y `1`):
+
+- Si el caracter es un digito `'0'`-`'9'`, su valor es `c - '0'` (por ejemplo, `'7' - '0' = 7`).
+- Si el caracter es una letra `'A'`-`'F'` (necesaria para hexadecimal), su valor es `10 + (c - 'A')` (por ejemplo, `'A'` vale `10`, `'F'` vale `15`).
+- Cualquier otro caracter no es un digito valido en ninguna base y devuelve `-1`.
+- Finalmente, se comprueba que ese valor sea menor que la base indicada (`valor < base`). Esto es lo que rechaza, por ejemplo, el digito `'8'` en octal (base 8): aunque `'8'` es un digito valido en general, `8` no es menor que `8`, asi que no es valido *en octal*.
+
+### `caracterDigito`: de valor numerico a caracter
+
+Es la operacion inversa a `valorDigito`: dado un valor entre `0` y `15`, devuelve el caracter que lo representa (`0`-`9` o `A`-`F`). Se usa al construir el resultado en `decimalABase`.
+
+### `esValidoEnBase`: validar la cadena completa
+
+Generaliza el antiguo `esBinarioValido`: rechaza cadenas vacias y recorre cada caracter comprobando con `valorDigito` que sea un digito valido para la base recibida. Si `valorDigito` devuelve `-1` para algun caracter, la cadena completa no es valida.
+
+### `aDecimal`: de cualquier base a decimal
+
+Generaliza el antiguo `binarioADecimal`, que solo funcionaba en base 2. La logica es la misma pero usando `base` como parametro en vez del `2` fijo:
+
+- Se recorre la cadena de derecha a izquierda (el digito mas a la derecha es el de menor peso, `base⁰`).
+- Cada digito se multiplica por `base` elevado a la potencia correspondiente (`Math.pow(base, potencia)`) y se acumula en `decimal`.
+- `potencia` aumenta en cada vuelta, a medida que se avanza hacia la izquierda (posiciones de mayor peso).
+
+Por ejemplo, para el octal `"17"` (base 8): el digito `'7'` (posicion 0) aporta `7 * 8⁰ = 7`, y el digito `'1'` (posicion 1) aporta `1 * 8¹ = 8`; total `15`.
+
+### `decimalABase`: de decimal a cualquier base
+
+Esta es la funcion nueva que faltaba en la version anterior (que solo iba *hacia* decimal, nunca *desde* decimal). Usa el metodo clasico de **divisiones sucesivas**:
+
+1. Si el numero es `0`, el resultado es directamente `"0"` (si no, el bucle de abajo no se ejecutaria nunca y devolveria una cadena vacia).
+2. Mientras `decimal` sea mayor que `0`:
+   - `resto = decimal % base` obtiene el digito menos significativo que falta por escribir (el resto de dividir entre la base).
+   - `resultado.insert(0, caracterDigito(resto))` inserta ese digito **al principio** del resultado (porque los restos se van generando del menos significativo al mas significativo, en orden inverso al que se necesitan para leerlos).
+   - `decimal /= base` (division entera) descarta el digito ya procesado y continua con el resto del numero.
+3. Al terminar el bucle, `resultado` contiene la representacion completa en la base pedida.
+
+Por ejemplo, para convertir el decimal `26` a binario (base 2): `26 % 2 = 0`, `26 / 2 = 13` -> `13 % 2 = 1`, `13 / 2 = 6` -> `6 % 2 = 0`, `6 / 2 = 3` -> `3 % 2 = 1`, `3 / 2 = 1` -> `1 % 2 = 1`, `1 / 2 = 0`. Los restos, insertados siempre al inicio, forman `"11010"`.
+
+## Ejemplos de ejecucion
+
+```
+===== Convertidor de bases numericas =====
+...
+Elija una opcion (1-12): 1
+Ingrese un numero Decimal: 26
+El numero en Binario es: 11010
+```
+
+```
+===== Convertidor de bases numericas =====
+...
+Elija una opcion (1-12): 10
+Ingrese un numero Hexadecimal: ff
+El numero en Decimal es: 255
+```
+
+```
+===== Convertidor de bases numericas =====
+...
+Elija una opcion (1-12): 8
+Ingrese un numero Octal: 17
+El numero en Binario es: 1111
+```
 
 ## Manejo de errores
 
-Si el usuario ingresa algo que no sea únicamente `0` y `1` (por ejemplo `"102"`, `"abc"` o una cadena vacía), el método `esBinarioValido` detecta el problema y el programa muestra:
-
-```
-Error: solo se permiten digitos 0 y 1.
-```
-
-y termina sin intentar realizar la conversión.
+- **Opcion invalida**: si se ingresa algo que no es un numero, o un numero fuera del rango 1-12, se muestra un error y el programa termina sin pedir el numero a convertir.
+- **Numero invalido para la base elegida**: si el numero ingresado contiene caracteres que no son digitos validos en la base de origen (por ejemplo, `"29"` como binario, o `"G1"` como hexadecimal), se muestra un mensaje indicando que no es un numero valido en esa base, y el programa termina sin intentar la conversion.
